@@ -16,17 +16,18 @@ module.exports = function createAtom (initialState = {}, actions = {}, options =
   const listeners = []
   const merge = options.merge || deepMerge
   const debug = options.debug
+  const context = {}
   const get = () => state
   const set = createSet()
   const dispatch = createDispatch()
-  const atom = { get, dispatch, observe, fuse }
-  const mutableAtom = { get, set, dispatch, observe, fuse }
+  const atom = { get, dispatch, observe, fuse, context }
+  const mutableAtom = { get, set, dispatch, observe, fuse, context }
   const evolve = options.evolve || defaultEvolve
   return atom
 
   function defaultEvolve (atom, action, actions) {
     if (!actions[action.type]) throw new Error(`Missing action: ${action.type}`)
-    return actions[action.type](atom, action.payload)
+    return actions[action.type](atom, action.payload, atom.context)
   }
 
   function observe (f) {
