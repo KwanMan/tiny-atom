@@ -7,8 +7,8 @@ Sometimes it's useful to see a log of all the actions and state updates. **Tiny 
 Enable it like this:
 
 ```js
-const createAtom = require('tiny-atom')
-const log = require('tiny-atom/log')
+import createAtom from 'tiny-atom'
+import log from 'tiny-atom/log'
 
 const atom = createAtom(initialState, actions, { debug: log() })
 ```
@@ -36,12 +36,6 @@ Print updates.
 *default*: `true`
 
 Print state diff to see what changed, what was added or removed.
-
-### diffLimit
-*type*: `number`
-*default*: `10`
-
-How many changes to log uncollapsed. Set to `-1` to print all changes.
 
 #### include
 *type*: `array`

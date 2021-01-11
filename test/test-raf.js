@@ -2,12 +2,14 @@ const test = require('ava')
 const { JSDOM } = require('jsdom')
 const raf = require('../src/raf')
 
-test('calls functions at most once a frame', async t => {
+test('calls functions at most once a frame', async function(t) {
   const dom = new JSDOM()
   global.window = dom.window
 
   let frame
-  dom.window.requestAnimationFrame = fn => { frame = fn }
+  dom.window.requestAnimationFrame = fn => {
+    frame = fn
+  }
 
   let renders = 0
   const render = raf(() => renders++)
@@ -51,7 +53,7 @@ test('calls functions at most once a frame', async t => {
   t.is(renders, 2)
 })
 
-test('gets pollyfilled with ts on the server or other envs', async t => {
+test('gets pollyfilled with ts on the server or other envs', async function(t) {
   const dom = new JSDOM()
   const tick = () => new Promise(resolve => setTimeout(resolve, 20))
   global.window = dom.window
@@ -81,20 +83,18 @@ test('gets pollyfilled with ts on the server or other envs', async t => {
   await tick()
   t.is(renders, 1)
 
-  // this one's not deferred, due to how
-  // the polyfill works
   render()
   render()
   render()
+  await tick()
   t.is(renders, 2)
 
-  // one more render kicks in due to polyfill
   await tick()
-  t.is(renders, 3)
+  t.is(renders, 2)
 
   // frames fire, no extra renders happen
   await tick()
   await tick()
   await tick()
-  t.is(renders, 3)
+  t.is(renders, 2)
 })

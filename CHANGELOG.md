@@ -1,3 +1,116 @@
+## 4.2.2
+
+* Run the correct release command
+
+## 4.2.1
+
+* **Fix** infinite rerender loop where selector callback was changing and causing rerenders
+
+## 4.2.0
+
+Improvements to hooks and a new feature – calling actions from actions is now easier.
+
+* **Improvement** In useAtom hook, react to changes to sync, observe, atom and selector, for selector to be updated, pass `options.deps = [...]` to the hook
+* **Improvement** In hooks actions are called by `actions.doSomething()`, this can now be done in actions too, the new action signature is `({ get, set, swap, actions, dispatch }, payload). Dispatch is still available, but is now considered an advanced feature and does not have to be used when using Tiny Atom.
+* **Fix** Correctly unsubscribe from atom by using an extra local variable to avoid sync effect race condition
+
+
+## 4.1.0
+
+Important fixes in the hooks implementation
+
+* Fix #69 - a race condition where atom could change before useEffect is flushed leading to incosistent render output
+* Fix #70 - an issue caused by incorrect usage of useState, where a new React version does not rerender if useState is called with the same value
+* Optimise the hook by only mapping state to props once per render instead of twice
+* Make the logger output less noisy by default, don't show full diff information, only an inline summary
+
+## 4.0.1
+
+Nothing changed. Previous release was done using the wrong command.
+
+## 4.0.0
+
+**tl;dr**
+
+* react hooks – `useAtom`, `useActions` and `useDispatch` 💥
+* update `set` to no longer deeply merge
+* add `swap` for swapping the entire state
+* expose `set` and `swap` on top level atom
+* remove `options.merge`, use `options.evolve` instead
+
+And with more details:
+
+* **Improvement** you can now use react hooks to bind to the tiny atom state, it's probably the most concise way of using tiny-atom yet:
+
+```js
+import { useAtom, useActions } from 'tiny-atom/react/hooks'
+
+export default function Card () {
+  const { name, role } = useAtom(state => state.user)
+  const { message } = useActions()
+
+  return (
+    <div>
+      <div>{name}</div>
+      <div>{role}</div>
+      <button onClick={() => message('hello')} />
+    </div>
+  )
+}
+```
+
+Note: when using `connect`, tiny-atom made sure to eliminite rerendering entire subtrees using `shouldComponentUpdate`. With hooks, it's your own responsibility to wrap components with `React.memo()` to make sure the entire application doesn't needlessly rerender. If you wrap certain root components or simply most of the components using `React.memo()`, this will ensure that only "hooked" components rerender as and when needed.
+
+* **BREAKING** Set no longer does a deep merge, this was a surprising unpredictable behaviour. For example, if you were trying to update the route in the store with `set({ route })`, you would not think that the url or query parameters got merged between the old route and the new route.
+
+So now, instead of:
+
+```js
+set({ display: { hidden: true } })
+```
+
+You could instead do:
+
+```js
+const { display } = get()
+set({ display: { ...display, hidden: true } })
+```
+
+This is more explicit about what gets merged and what doesn't. Note, the set still does a shallow merge of the top level attributes, just like React's `setState`. If you want to completely replace the state, use `swap` instead of `set`.
+
+If you do want to keep the old behaviour, you can through implementing a custom evolver:
+
+```js
+function evolve ({ get, set, swap, dispatch }, action) {
+  set = update => deepMerge(get(), update)
+  actions[action.type]({ get, set, swap, dispatch }, action.payload)
+}
+```
+
+* **BREAKING** Set used to take an options object as second argument, with the `replace` option. Use `swap` instead.
+
+Before:
+
+```js
+set(nextState, { replace: true })
+```
+
+After:
+
+```js
+swap(nextState)
+```
+
+* **Improvement** Readd `set` and (now also `swap`) to the top level atom. The `fuse` was often abused not for adding extra actions, but for adding extra state or resetting the state to the atom. Instead of abusing `fuse`, just expose `set` and `swap` to allow changing atom's values more easily.
+
+## 3.4.2
+
+* **Fix** the fix. When turning `canUseDOM` into `isServer`, the boolean value has to be inverted.
+
+## 3.4.1
+
+* **Fix** support for react-native by improving the check for server environment. Previously react-native was treated as server side rendering scenario and the connectors wouldn't subscribe to the store by default.
+
 ## 3.4.0
 
 * **Improvement** - It's now possible to turn on the default behaviour of subscribing to the store by setting `observe: false` when connecting.

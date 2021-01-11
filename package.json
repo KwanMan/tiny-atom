@@ -1,11 +1,13 @@
 {
   "name": "tiny-atom",
-  "version": "3.4.0",
-  "description": "Minimal, yet awesome, state management.",
+  "version": "4.2.2",
+  "description": "Pragmatic and concise state management.",
   "main": "index.js",
   "scripts": {
     "coverage": "nyc --reporter html ava",
-    "test": "standard && nyc ava",
+    "test": "npm run lint && nyc ava",
+    "lint": "healthier && prettier --check '**/*.{js,json,css,yml}'",
+    "format": "prettier --write '**/*.{js,json,css,yml}'",
     "build": "node ./tasks/build.js",
     "version": "npm run build",
     "release": "np --contents dist",
@@ -13,36 +15,42 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/QubitProducts/tiny-atom.git"
+    "url": "git+https://github.com/KidkArolis/tiny-atom.git"
   },
   "contributors": [
-    "Karolis Narkevicius <karolis@qubit.com>",
+    "Karolis Narkevicius <hello@kn8.lt>",
     "Alan Clarke <alan@qubit.com>"
   ],
   "license": "ISC",
-  "devDependencies": {
-    "ava": "^0.25.0",
-    "buble": "^0.19.3",
-    "execa": "^0.10.0",
-    "jetpack": "^0.8.0",
-    "jsdom": "^11.3.0",
-    "np": "^3.0.4",
-    "nyc": "^12.0.2",
-    "preact": "^8.2.9",
-    "react": "^16.3.0",
-    "react-dom": "^16.3.0",
-    "standard": "^11.0.0"
+  "dependencies": {
+    "deep-diff": "^1.0.2"
   },
-  "standard": {
+  "devDependencies": {
+    "ava": "^2.1.0",
+    "buble": "^0.19.7",
+    "execa": "^1.0.0",
+    "healthier": "^2.0.0",
+    "jetpack": "^0.16.0",
+    "jsdom": "^15.1.1",
+    "np": "^5.0.3",
+    "nyc": "^14.1.1",
+    "preact": "^8.4.2",
+    "prettier": "^1.18.2",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6"
+  },
+  "healthier": {
     "ignore": [
       "docs/public"
     ]
   },
   "ava": {
-    "files": "test/test-*.js",
+    "files": [
+      "test/test-*.js"
+    ],
     "require": "./test/helpers/setup.js"
   },
-  "dependencies": {
-    "deep-diff": "^1.0.2"
+  "np": {
+    "releaseDraft": false
   }
 }

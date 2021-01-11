@@ -5,7 +5,7 @@
   <br>
 </h1>
 
-<h5 align="center">Minimal, yet awesome, state management.</h5>
+<h5 align="center">Pragmatic and concise state management.</h5>
 <br />
 
 <p align="center">
@@ -15,8 +15,8 @@
   <a href="http://img.badgesize.io/https://cdn.jsdelivr.net/npm/tiny-atom/index.min.js?compression=gzip">
     <img src="http://img.badgesize.io/https://cdn.jsdelivr.net/npm/tiny-atom/index.min.js?compression=gzip" alt="size" />
   </a>
-  <a href="https://travis-ci.org/QubitProducts/tiny-atom">
-    <img src="https://travis-ci.org/QubitProducts/tiny-atom.svg?branch=master" alt="Build Status" />
+  <a href="https://travis-ci.org/KidkArolis/tiny-atom">
+    <img src="https://travis-ci.org/KidkArolis/tiny-atom.svg?branch=master" alt="Build Status" />
   </a>
   <a href="https://github.com/standard/standard">
     <img src="https://img.shields.io/badge/code_style-standard-brightgreen.svg" alt="code style: standard" />
@@ -25,16 +25,17 @@
 
 * single store modified via actions
 * tiny api - easy to understand, easy to adapt
-* tiny size - 1KB
+* tiny size - 1KB, or 2KB with (p)react bindings
 * react and preact bindings included
-* react and preact debug mode for identifying re-renders
+* react hooks support
+* highly optimised with batched rerenders
 * beautiful console logger
 * redux devtools integration
 
 **How is this different from redux?** The key differences are:
 
-* actions in tiny-atom can read and update the state and dispatch other actions. Actions are self contained units of business logic. This removes layers of boilerplate while preserving the benefits of redux like stores.
-* tiny-atom includes useful utilities to make it completely sufficient for building application of any size.
+* Actions in tiny-atom are self contained units of business logic. They can read and update the state and dispatch other actions any number of times. This removes layers of boilerplate while preserving the benefits of redux like stores.
+* Tiny-atom includes useful utilities to make it completely sufficient for building application of any size.
 
 ## Installation
 
@@ -53,26 +54,65 @@ Read the [full docs](https://kidkarolis.github.io/tiny-atom) or pick one of the 
 ## Example
 
 ```js
-const createAtom = require('tiny-atom')
+import createAtom from 'tiny-atom'
 
 const atom = createAtom({ unicorns: 0, rainbows: [] }, {
   incrementUnicorns ({ get, set }, n) {
     set({ unicorns: get().unicorns + n })
   },
 
-  async fetchRainbows ({ set, dispatch }) {
+  async fetchRainbows ({ set, actions }) {
     set({ loading: true })
     const { data: rainbows } = await axios.get('/api/rainbows')
     set({ rainbows, loading: false })
-    dispatch('incrementUnicorns', 1)
+    actions.incrementUnicorns(1)
   }
 })
 
-atom.observe((atom) => {
+atom.observe(atom => {
   console.log('atom', atom)
   const { rainbows, unicorns } = atom.get()
-  render(unicorns).onClick(e => atom.dispatch('incrementUnicorns', 10))
+  render(unicorns).onClick(e => atom.actions.incrementUnicorns(10))
 })
+```
+
+## React Example
+
+Provide the store:
+
+```js
+import React from 'react'
+import ReactDOM from 'react-dom'
+import createAtom from 'tiny-atom'
+import { Provider } from 'tiny-atom/react'
+
+const atom = createAtom({ user: { name: 'Atom' } }, {
+  message ({ get, set, swap, actions }, msg) {
+    console.log(msg)
+  }
+})
+
+ReactDOM.render((
+  <Provider atom={atom}>
+    <App />
+  </Provider>
+), document.querySelector('root'))
+```
+
+Connect using React hooks:
+
+```js
+import React from 'react'
+import { useAtom, useActions } from 'tiny-atom/react/hooks'
+
+export default function Hello () {
+  const user = useAtom(state => state.user)
+  const { message } = useActions()
+
+  return (
+    <button onClick={() => message('hi')}>{user.name}</button>
+  )
+}
 ```
 
 ## API
@@ -85,22 +125,19 @@ Create an atom.
 *type*: `any`
 *default*: `{}`
 
-The initial state of the atom. If custom data structure is used (e.g. Immutable), make sure to also specify an appropriate `options.merge` implementation.
+The initial state of the atom.
 
 #### actions
 *type*: `object`
 *default*: `{}`
 
-An object with action functions. The signature of an action function is `({ get, set, dispatch }, payload)`. If you provide nested action objects or other structure, make sure to also specify an appropriate `options.evolve` implementation to handle your actions appropriately.
+An object with action functions. The signature of an action function is `({ get, set, swap, actions, dispatch }, payload)`. If you provide nested action objects or other structure, make sure to also specify an appropriate `options.evolve` implementation to handle your actions appropriately.
 
 * `get()` - returns the current state
-* `set(patch, options)` - updates the state with the patch object by merging the patch using `options.merge` function. The default implementation is deep merge. Use `{ replace: true }` option to replace the state instead of merging in the patch.
-* `dispatch` - same as `atom.dispatch`, dispatches an action.
-
-#### options.merge
-*type*: `function`
-
-A function called on each `set(update)` to merge the update into the state. The function signature is `(state, update) => state'`. The default implementation is a deep merge.
+* `set(patch)` - updates the state with the patch object by merging the patch using `Object.assign`
+* `swap(state)` - replace the entire state with the provided one
+* `dispatch` - same as `atom.dispatch`, dispatches an action
+* `actions` - actions prebound to dispatch, i.e. actions.increment(1) is equivalent to dispatch('increment', 1)
 
 #### options.evolve
 *type*: `function`
@@ -116,7 +153,7 @@ A function that will be called on each action and state update. The function is 
 ```js
 createAtom({ count: 1 }, {
   increment: ({ get, set }, payload) => set({ count: get().count + payload }),
-  inc: ({ dispatch }, payload) => dispatch('increment', payload)
+  inc: ({ actions }, payload) => actions.increment(payload)
 })
 ```
 
@@ -129,6 +166,23 @@ atom.get()
 atom.get().feed.items
 ```
 
+### `atom.set(update)`
+
+Update state by shallowly merging an update.
+
+```js
+atom.set({ user })
+atom.set({ entities: { ...get().entities, posts } })
+```
+
+### `atom.swap(state)`
+
+Replace the entire state with the provided one.
+
+```js
+atom.swap(nextState)
+```
+
 ### `atom.dispatch(type, payload)`
 
 Send an action
@@ -137,6 +191,21 @@ Send an action
 atom.dispatch('fetchMovies')
 atom.dispatch('increment', 5)
 ```
+
+### `atom.actions`
+
+A map of prebound actions. For example, if your actions passed to atom are
+
+```js
+const actions = {
+  increment ({ get, set }) {
+    const { count } = get()
+    set({ count: count + 1 })
+  }
+}
+```
+
+They will be bound such that calling `atom.actions.increment(1)` dispatches action with `dispatch('increment', 1).
 
 ### `atom.observe(cb)`
 
@@ -165,6 +234,7 @@ const actions = {
 atom.fuse(state, actions)
 ```
 
+
 ## React / Preact bindings
 
-For documentation on the set of react and preact components `<Provider />`, `<Consumer />` and `connect` see [react](https://kidkarolis.github.io/tiny-atom/using-with-react) or [preact](https://kidkarolis.github.io/tiny-atom/using-with-preact) docs.
+For documentation on the set of react and preact components `<Provider />`, `<Consumer />`, `connect`, `useAtom`, `useActions` and `useDispatch` see [react](https://kidkarolis.github.io/tiny-atom/using-with-react) or [preact](https://kidkarolis.github.io/tiny-atom/using-with-preact) docs.

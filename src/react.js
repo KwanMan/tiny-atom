@@ -3,13 +3,13 @@ const raf = require('./raf')
 const printDebug = require('./debug')
 
 const dev = process.env.NODE_ENV !== 'production'
-const canUseDOM = !!(typeof window !== 'undefined' && window.document && window.document.createElement)
+const isServer = typeof navigator === 'undefined'
 
-function createContext () {
+function createContext() {
   const AtomContext = React.createContext()
 
   class Provider extends React.Component {
-    render () {
+    render() {
       return (
         <AtomContext.Provider value={{ atom: this.props.atom, debug: this.props.debug }}>
           {this.props.children}
@@ -19,24 +19,26 @@ function createContext () {
   }
 
   class ConsumerInner extends React.Component {
-    constructor (props) {
+    constructor(props) {
       super()
       this.state = {}
       this.isPure = typeof props.pure === 'undefined' ? true : props.pure
-      this.shouldObserve = typeof props.observe === 'undefined' ? canUseDOM : props.observe
+      this.shouldObserve = typeof props.observe === 'undefined' ? !isServer : props.observe
       this.scheduleUpdate = props.sync ? () => this.update() : raf(() => this.update())
     }
 
-    observe () {
+    observe() {
       if (!this.shouldObserve) return
       this.unobserve && this.unobserve()
-      this.unobserve = this.props.atom.observe(() => { this.cancelUpdate = this.scheduleUpdate() })
+      this.unobserve = this.props.atom.observe(() => {
+        this.cancelUpdate = this.scheduleUpdate()
+      })
       this.observedAtom = this.props.atom
       delete this.boundActions
       delete this.boundActionsSpec
     }
 
-    componentWillUnmount () {
+    componentWillUnmount() {
       this.unobserve && this.unobserve()
       this.cancelUpdate && this.cancelUpdate()
       delete this.unobserve
@@ -46,7 +48,7 @@ function createContext () {
       delete this.boundActionsSpec
     }
 
-    shouldComponentUpdate (nextProps, nextState) {
+    shouldComponentUpdate(nextProps, nextState) {
       if (!this.isPure) return true
 
       // if it's <Consumer> with dynamic children, shortcut the check
@@ -83,19 +85,19 @@ function createContext () {
       return false
     }
 
-    debugName () {
+    debugName() {
       return this.props.displayName || this.constructor.name
     }
 
-    componentDidUpdate (prevProps) {
+    componentDidUpdate(prevProps) {
       this.cancelUpdate && this.cancelUpdate()
     }
 
-    update () {
+    update() {
       this.setState({})
     }
 
-    bindActions (actions, dispatch, mappedProps) {
+    bindActions(actions, dispatch, mappedProps) {
       if (!actions) return { dispatch }
       if (typeof actions === 'function') return actions(dispatch, mappedProps)
       if (!this.boundActions || this.boundActionsSpec !== actions) {
@@ -108,7 +110,7 @@ function createContext () {
       return this.boundActions
     }
 
-    render () {
+    render() {
       // do this in render, because:
       //  doing in constructor would cause memory leaks in SSR
       //  doing in componentDidMount leads to the wrong order of subscriptions
@@ -131,10 +133,10 @@ function createContext () {
     </AtomContext.Consumer>
   )
 
-  function connect (map, actions, options = {}) {
-    return function connectComponent (Component) {
+  function connect(map, actions, options = {}) {
+    return function connectComponent(Component) {
       const render = mappedProps => <Component {...mappedProps} />
-      const Connected = (props) => (
+      const Connected = props => (
         <Consumer
           displayName={Component.displayName || Component.name}
           map={map}
@@ -151,7 +153,16 @@ function createContext () {
     }
   }
 
-  function differ (mappedProps, nextMappedProps) {
+  function differ(mappedProps, nextMappedProps) {
+    if (mappedProps === nextMappedProps) {
+      return false
+    }
+    if (!mappedProps || !nextMappedProps) {
+      return true
+    }
+    if (!isObject(mappedProps) || !isObject(nextMappedProps)) {
+      return true
+    }
     for (let i in mappedProps) {
       if (mappedProps[i] !== nextMappedProps[i]) return true
     }
@@ -161,8 +172,12 @@ function createContext () {
     return false
   }
 
-  return { Provider, Consumer, connect }
+  function isObject(obj) {
+    return typeof obj === 'object' && Object.prototype.toString.call(obj) === '[object Object]'
+  }
+
+  return { AtomContext, Provider, Consumer, connect, differ }
 }
 
-const { Provider, Consumer, connect } = createContext()
-module.exports = { Provider, Consumer, connect, createContext }
+const { AtomContext, Provider, Consumer, connect, differ } = createContext()
+module.exports = { AtomContext, Provider, Consumer, connect, differ, createContext }

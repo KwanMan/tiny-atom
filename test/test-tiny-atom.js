@@ -24,7 +24,7 @@ test.cb('async action updates the state', t => {
   const atom = createAtom({ count: 0 }, { increment })
   atom.observe(onChange)
 
-  function increment ({ get, set }) {
+  function increment({ get, set }) {
     set({ count: get().count + 1 })
     setTimeout(() => {
       set({ count: get().count + 1, async: true })
@@ -32,7 +32,7 @@ test.cb('async action updates the state', t => {
     }, 1)
   }
 
-  function onChange (atom) {
+  function onChange(atom) {
     let state = atom.get()
     changes.push(1)
     if (changes.length === 1) t.deepEqual(state, { count: 1 })
@@ -49,16 +49,12 @@ test.cb('async action updates the state', t => {
 
 test('can be used in a mutating manner', t => {
   const initialState = { count: 0 }
-  const atom = createAtom(initialState, { increment }, { merge: mutate })
+  const atom = createAtom(initialState, { increment })
 
-  function mutate (empty, prev, next) {
-    return Object.assign(prev, next)
-  }
-
-  function increment ({ get, set }, payload) {
+  function increment({ get, swap }, payload) {
     const state = get()
     state.count += payload
-    set(state)
+    swap(state)
   }
 
   atom.dispatch('increment', 3)
@@ -83,7 +79,7 @@ test.cb('debug provides action and update details', t => {
 
   const atom = createAtom({ count: 0 }, actions, { debug })
 
-  function debug (info) {
+  function debug(info) {
     history.push(Object.assign(info, { currState: atom.get() }))
 
     if (atom.get().done) {
@@ -109,11 +105,11 @@ test.cb('debug can be an array of functions', t => {
 
   const atom = createAtom({ count: 0 }, actions, { debug: [debugOne, debugTwo] })
 
-  function debugOne (info) {
+  function debugOne(info) {
     history.push(['debugOne', info])
   }
 
-  function debugTwo (info) {
+  function debugTwo(info) {
     history.push(['debugTwo', info])
 
     if (atom.get().done) {
@@ -162,7 +158,7 @@ test('missing actions', t => {
 test('custom evolve', t => {
   const atom = createAtom({ count: 0 }, {}, { evolve })
 
-  function evolve ({ get, set }, { type, payload }) {
+  function evolve({ get, set }, { type, payload }) {
     if (type === 'increment') {
       set({ count: get().count + (payload || 1) })
     }
@@ -176,18 +172,6 @@ test('custom evolve', t => {
 
   atom.dispatch('increment', 5)
   t.deepEqual(atom.get(), { count: 6 })
-})
-
-test('custom merge', t => {
-  const merge = (oldState, newState) => oldState + newState
-  const add = ({ set }, x) => set(x)
-  const atom = createAtom(5, { add }, { merge })
-
-  atom.dispatch('add', 1)
-  t.deepEqual(atom.get(), 6)
-
-  atom.dispatch('add', 2)
-  t.deepEqual(atom.get(), 8)
 })
 
 test('fuse extends the state and actions', t => {
@@ -205,12 +189,12 @@ test('fuse extends the state and actions', t => {
   t.deepEqual(atom.get(), { count: 4, meta: 1, base: 2 })
 })
 
-test('async actions are testable', async t => {
+test('async actions are testable', async function(t) {
   let atom, history, axios
 
   // action under test
   const actions = {
-    fetchMetrics: async ({ get, set, dispatch }, id) => {
+    fetchMetrics: async function({ get, set, dispatch }, id) {
       set({ loading: true })
       try {
         const res = await axios.get('/metrics/' + id)
@@ -227,29 +211,22 @@ test('async actions are testable', async t => {
   }
 
   // test boilerplate
-  function setup () {
+  function setup() {
     history = []
-    const onChange = ({ type, atom }) => type === 'update' ? history.push(atom.get()) : null
+    const onChange = ({ type, atom }) => (type === 'update' ? history.push(atom.get()) : null)
     return createAtom({}, actions, { debug: onChange })
   }
 
   // success case
   atom = setup()
-  axios = { get: (path) => Promise.resolve({ data: [path, 'data'] }) }
+  axios = { get: path => Promise.resolve({ data: [path, 'data'] }) }
   await atom.dispatch('fetchMetrics', 57)
-  t.deepEqual(history, [
-    { loading: true },
-    { loading: false, metrics: ['/metrics/57', 'data'] }
-  ])
+  t.deepEqual(history, [{ loading: true }, { loading: false, metrics: ['/metrics/57', 'data'] }])
 
   // error case
   atom = setup()
   let err = new Error('Fetch failed')
-  axios = { get: (path) => Promise.reject(err) }
+  axios = { get: path => Promise.reject(err) }
   await atom.dispatch('fetchMetrics', 57)
-  t.deepEqual(history, [
-    { loading: true },
-    { loading: false },
-    { loading: false, error: 'Fetch failed' }
-  ])
+  t.deepEqual(history, [{ loading: true }, { loading: false }, { loading: false, error: 'Fetch failed' }])
 })
